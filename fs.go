@@ -1,4 +1,3 @@
-/*
 package main
 
 import (
@@ -16,7 +15,7 @@ type HelloRoot struct {
 }
 
 func (r *HelloRoot) OnAdd(ctx context.Context) {
-	ch := r.NewPersistentInode(
+	ch := r.NewInode(
 		ctx, &fs.MemRegularFile{
 			Data: []byte("file.txt"),
 			Attr: fuse.Attr{
@@ -24,6 +23,15 @@ func (r *HelloRoot) OnAdd(ctx context.Context) {
 			},
 		}, fs.StableAttr{Ino: 2})
 	r.AddChild("file.txt", ch, false)
+
+	dir := r.NewInode(
+		ctx, &fs.MemRegularFile{
+			Data: []byte("sample data"),
+			Attr: fuse.Attr{
+				Mode: 0644,
+			},
+		}, fs.StableAttr{Ino: 3, Mode: fuse.S_IFDIR})
+	r.AddChild("exampledir", dir, false)
 }
 
 func (r *HelloRoot) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
@@ -34,7 +42,7 @@ func (r *HelloRoot) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.Att
 var _ = (fs.NodeGetattrer)((*HelloRoot)(nil))
 var _ = (fs.NodeOnAdder)((*HelloRoot)(nil))
 
-func main() {
+func fuse_main() {
 	debug := flag.Bool("debug", false, "print debug data")
 	flag.Parse()
 	if len(flag.Args()) < 1 {
@@ -42,10 +50,10 @@ func main() {
 	}
 	opts := &fs.Options{}
 	opts.Debug = *debug
+	// unmount in case you have errors because of ghosts
 	server, err := fs.Mount(flag.Arg(0), &HelloRoot{}, opts)
 	if err != nil {
 		log.Fatalf("Mount fail: %v\n", err)
 	}
 	server.Wait()
 }
-*/
