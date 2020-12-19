@@ -92,10 +92,10 @@ func initDbx() (err error) {
 
 	config = dropbox.Config{
 		Token:    memorizedToken,
-		LogLevel: dropbox.LogInfo, // if needed, set the desired logging level. Default is off
+		LogLevel: dropbox.LogOff, // if needed, set the desired logging level. Default is off
 	}
 
-	fmt.Print("Dropbox Config'd!")
+	fmt.Print("Dropbox Config'd!\n")
 
 	return
 }
@@ -112,7 +112,26 @@ func copyOperation() error {
 	return nil
 }
 
+func downloadOp() {
+	dbx := files.New(config)
+
+	downloadArg := files.NewDownloadArg("/file.txt")
+
+	meta, content, err := dbx.Download(downloadArg)
+	if err != nil {
+		return
+	}
+
+	// Here we'd need a better file reading mechanic ( so we know for sure we've read all )
+	b1 := make([]byte, meta.Size)
+	n1, err := content.Read(b1)
+	/////////////////////////
+
+	fmt.Println(string(b1[:n1]))
+}
+
 func main() {
 	initDbx()
-	copyOperation()
+	//copyOperation()
+	downloadOp()
 }
