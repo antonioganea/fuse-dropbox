@@ -20,6 +20,11 @@ const (
 
 var config dropbox.Config
 
+type DrpPath struct {
+	path     string
+	isFolder bool
+}
+
 func validatePath(p string) (path string, err error) {
 	path = p
 
