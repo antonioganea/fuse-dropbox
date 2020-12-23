@@ -215,6 +215,19 @@ func getFileMetadata(c files.Client, path string) (files.IsMetadata, error) {
 	return res, nil
 }
 
+// /preda/raluca/antonio -> antonio
+// /preda/raluca -> raluca
+func lastFolderFromPath( path string ) string {
+	slices := strings.Split(path, "/")
+	return slices[len(slices) - 1]
+}
+
+// /preda/raluca/antonio -> /preda/raluca
+// /preda/raluca -> /preda
+func firstPartFromPath(path string) string {
+	return path[:strings.LastIndex(path, "/")]
+}
+
 func listDirTopLevel() error {
 	dbx := files.New(config)
 
