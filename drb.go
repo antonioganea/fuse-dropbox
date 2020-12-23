@@ -60,6 +60,74 @@ func writeToken(filePath string, token string) {
 	}
 }
 
+// returns a list of paths
+// that represent the DFS traversal of  the drobpox folder
+func getDropboxTreeStructure() []DrpPath {
+	dbx := files.New(config)
+
+	arg := files.NewListFolderArg("")
+	arg.Recursive = true
+
+	res, err := dbx.ListFolder(arg)
+	var entries []files.IsMetadata
+	if err != nil {
+		switch e := err.(type) {
+		case files.ListFolderAPIError:
+			if e.EndpointError.Path.Tag == files.LookupErrorNotFolder {
+				var metaRes files.IsMetadata
+				metaRes, err = getFileMetadata(dbx, "/")
+				entries = []files.IsMetadata{metaRes}
+			} else {
+				return nil
+			}
+		default:
+			return nil
+		}
+
+		if err != nil {
+			return nil
+		}
+	} else {
+		entries = res.Entries
+
+		for res.HasMore {
+			arg := files.NewListFolderContinueArg(res.Cursor)
+
+			res, err = dbx.ListFolderContinue(arg)
+			if err != nil {
+				return nil
+			}
+
+			entries = append(entries, res.Entries...)
+		}
+	}
+
+	structure := make([]DrpPath, 0)
+
+	for _, entry := range entries {
+		switch f := entry.(type) {
+		case *files.FileMetadata:
+			fmt.Println(f.PathDisplay)
+
+			var node DrpPath
+			node.path = f.PathDisplay
+			node.isFolder = false
+
+			structure = append(structure, node)
+
+		case *files.FolderMetadata:
+			fmt.Println(f.PathDisplay)
+
+			var node DrpPath
+			node.path = f.PathDisplay
+			node.isFolder = false
+
+			structure = append(structure, node)
+		}
+	}
+	return structure
+}
+
 func initDbx() (err error) {
 
 	memorizedToken, err := readToken(configFileName)
