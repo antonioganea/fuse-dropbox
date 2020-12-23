@@ -40,6 +40,29 @@ type DrpFileNode struct {
 // 	Read(ctx context.Context, f FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno)
 // }
 
+var _ = (fs.NodeGetattrer)((*DrpFileNode)(nil))
+
+func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
+	//bn.mu.Lock()
+	//defer bn.mu.Unlock()
+
+	dbx := files.New(config)
+
+	// TODO: make sure file name is correct
+	downloadArg := files.NewDownloadArg("/file.txt")
+
+	meta, _, err := dbx.Download(downloadArg)
+	if err != nil {
+		return 404
+	}
+
+	//bn.getattr(out)
+	out.Size = meta.Size
+	//out.SetTimes(nil, &bn.mtime, nil)
+
+	return 0
+}
+
 var _ = (fs.NodeReader)((*DrpFileNode)(nil))
 
 func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
@@ -70,11 +93,12 @@ func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte
 
 	fmt.Println(string(b1[:n1]))
 
+	// TRACTOR
 	var readSize int64
 	if int64(meta.Size) < destLen {
-		readSize = int64(meta.Size) - 1
+		readSize = int64(meta.Size)
 	} else {
-		readSize = off + destLen 
+		readSize = off + destLen
 	}
 
 	return fuse.ReadResultData(b1[off:readSize]), 0
