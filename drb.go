@@ -49,7 +49,7 @@ func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.
 	dbx := files.New(config)
 
 	// TODO: make sure file name is correct
-	downloadArg := files.NewDownloadArg("/file.txt")
+	downloadArg := files.NewDownloadArg(bn.drpPath)
 
 	meta, _, err := dbx.Download(downloadArg)
 	if err != nil {
@@ -74,7 +74,7 @@ func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte
 	dbx := files.New(config)
 
 	// TODO: make sure file name is correct
-	downloadArg := files.NewDownloadArg("/file.txt")
+	downloadArg := files.NewDownloadArg(drpn.drpPath)
 
 	meta, content, err := dbx.Download(downloadArg)
 	if err != nil {
@@ -372,10 +372,12 @@ func listDirTopLevel() error {
 
 var inoIterator uint64 = 2
 
-func AddFile(ctx context.Context, node *fs.Inode, fileName string) *fs.Inode {
+func AddFile(ctx context.Context, node *fs.Inode, fileName string, fullPath string) *fs.Inode {
 	// newfile := node.NewInode(ctx, operations, stable)
+	drpFileNode := DrpFileNode{}
+	drpFileNode.drpPath = fullPath
 	newfile := node.NewInode(
-		ctx, &DrpFileNode{}, fs.StableAttr{Ino: inoIterator})
+		ctx, &drpFileNode, fs.StableAttr{Ino: inoIterator})
 	node.AddChild(fileName, newfile, false)
 
 	inoIterator++
@@ -417,7 +419,7 @@ func ConstructTreeFromDrpPaths(ctx context.Context, r *HelloRoot, structure []Dr
 		if entry.isFolder {
 			newNode = AddFolder(ctx, parentNode, newNodeName)
 		} else {
-			newNode = AddFile(ctx, parentNode, newNodeName)
+			newNode = AddFile(ctx, parentNode, newNodeName, entry.path)
 		}
 
 		m[containingFolder+"/"+newNodeName] = newNode
