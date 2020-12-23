@@ -11,6 +11,8 @@ import (
 
 	"github.com/dropbox/dropbox-sdk-go-unofficial/dropbox"
 	"github.com/dropbox/dropbox-sdk-go-unofficial/dropbox/files"
+	"github.com/hanwen/go-fuse/fs"
+	"github.com/hanwen/go-fuse/fuse"
 	"golang.org/x/net/context"
 )
 
@@ -120,7 +122,7 @@ func getDropboxTreeStructure() []DrpPath {
 
 			var node DrpPath
 			node.path = f.PathDisplay
-			node.isFolder = false
+			node.isFolder = true
 
 			structure = append(structure, node)
 		}
@@ -217,9 +219,9 @@ func getFileMetadata(c files.Client, path string) (files.IsMetadata, error) {
 
 // /preda/raluca/antonio -> antonio
 // /preda/raluca -> raluca
-func lastFolderFromPath( path string ) string {
+func lastFolderFromPath(path string) string {
 	slices := strings.Split(path, "/")
-	return slices[len(slices) - 1]
+	return slices[len(slices)-1]
 }
 
 // /preda/raluca/antonio -> /preda/raluca
@@ -285,9 +287,79 @@ func listDirTopLevel() error {
 	return err
 }
 
-func main() {
-	initDbx()
+var inoIterator uint64 = 2
+
+func AddFile(ctx context.Context, node *fs.Inode, fileName string) *fs.Inode {
+	newfile := node.NewInode(
+		ctx, &fs.MemRegularFile{
+			Data: []byte("sample file data"),
+			Attr: fuse.Attr{
+				Mode: 0644,
+			},
+		}, fs.StableAttr{Ino: inoIterator})
+	node.AddChild(fileName, newfile, false)
+
+	inoIterator++
+
+	return newfile
+}
+
+func AddFolder(ctx context.Context, node *fs.Inode, folderName string) *fs.Inode {
+	dir := node.NewInode(
+		ctx, &fs.MemRegularFile{
+			Data: []byte("sample dir data"),
+			Attr: fuse.Attr{
+				Mode: 0644,
+			},
+		}, fs.StableAttr{Ino: inoIterator, Mode: fuse.S_IFDIR})
+	node.AddChild(folderName, dir, false)
+	inoIterator++
+
+	return dir
+}
+
+func ConstructTreeFromDrpPaths(ctx context.Context, r *HelloRoot, structure []DrpPath) {
+	// aici se va construi arborele
+	AddFolder(ctx, &r.Inode, "HelloDir")
+	AddFile(ctx, &r.Inode, "HelloFile")
+
+	fmt.Print("Generating tree")
+
+	fmt.Printf("Structure nodes %v", len(structure))
+
+	var m map[string](*fs.Inode) = make(map[string](*fs.Inode))
+
+	m[""] = &r.Inode
+
+	for _, entry := range structure {
+		fmt.Println("Processing : " + entry.path)
+
+		var containingFolder = firstPartFromPath(entry.path) // -> ""
+		var newNodeName = lastFolderFromPath(entry.path)     // -> "dirA"
+
+		fmt.Printf("containing folder : %v, newNodeName : %v \n", containingFolder, newNodeName)
+
+		var parentNode = m[containingFolder]
+		var newNode *fs.Inode
+		if entry.isFolder {
+			newNode = AddFolder(ctx, parentNode, newNodeName)
+		} else {
+			newNode = AddFile(ctx, parentNode, newNodeName)
+		}
+
+		m[containingFolder+"/"+newNodeName] = newNode
+
+		fmt.Println("Mapped the newly created node in " + containingFolder + "/" + newNodeName)
+	}
+}
+
+func ConstructTree(ctx context.Context, r *HelloRoot) {
+	ConstructTreeFromDrpPaths(ctx, r, getDropboxTreeStructure())
+}
+
+func drb_main() {
+	//initDbx()
 	//copyOperation()
 	//downloadOp()
-	listDirTopLevel()
+	//listDirTopLevel()
 }

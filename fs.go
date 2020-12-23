@@ -15,23 +15,7 @@ type HelloRoot struct {
 }
 
 func (r *HelloRoot) OnAdd(ctx context.Context) {
-	ch := r.NewInode(
-		ctx, &fs.MemRegularFile{
-			Data: []byte("file.txt"),
-			Attr: fuse.Attr{
-				Mode: 0644,
-			},
-		}, fs.StableAttr{Ino: 2})
-	r.AddChild("file.txt", ch, false)
-
-	dir := r.NewInode(
-		ctx, &fs.MemRegularFile{
-			Data: []byte("sample data"),
-			Attr: fuse.Attr{
-				Mode: 0644,
-			},
-		}, fs.StableAttr{Ino: 3, Mode: fuse.S_IFDIR})
-	r.AddChild("exampledir", dir, false)
+	ConstructTree(ctx, r)
 }
 
 func (r *HelloRoot) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
@@ -42,7 +26,7 @@ func (r *HelloRoot) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.Att
 var _ = (fs.NodeGetattrer)((*HelloRoot)(nil))
 var _ = (fs.NodeOnAdder)((*HelloRoot)(nil))
 
-func fuse_main() {
+func main() {
 	debug := flag.Bool("debug", false, "print debug data")
 	flag.Parse()
 	if len(flag.Args()) < 1 {
@@ -50,6 +34,9 @@ func fuse_main() {
 	}
 	opts := &fs.Options{}
 	opts.Debug = *debug
+
+	initDbx()
+
 	// unmount in case you have errors because of ghosts
 	server, err := fs.Mount(flag.Arg(0), &HelloRoot{}, opts)
 	if err != nil {
