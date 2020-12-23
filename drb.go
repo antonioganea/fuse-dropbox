@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"golang.org/x/oauth2"
 
@@ -25,6 +26,88 @@ var config dropbox.Config
 type DrpPath struct {
 	path     string
 	isFolder bool
+}
+
+type DrpFileNode struct {
+	// Must embed an Inode for the struct to work as a node.
+	fs.Inode
+
+	// drpPath is the path of this file/directory
+	drpPath string
+}
+
+// type NodeReader interface {
+// 	Read(ctx context.Context, f FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno)
+// }
+
+var _ = (fs.NodeGetattrer)((*DrpFileNode)(nil))
+
+func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
+	//bn.mu.Lock()
+	//defer bn.mu.Unlock()
+
+	dbx := files.New(config)
+
+	// TODO: make sure file name is correct
+	downloadArg := files.NewDownloadArg(bn.drpPath)
+
+	meta, _, err := dbx.Download(downloadArg)
+	if err != nil {
+		return 404
+	}
+
+	//bn.getattr(out)
+	out.Size = meta.Size
+	//out.SetTimes(nil, &bn.mtime, nil)
+
+	return 0
+}
+
+var _ = (fs.NodeReader)((*DrpFileNode)(nil))
+
+func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
+	// drpn.mu.Lock()
+	// defer drpn.mu.Unlock()
+
+	destLen := int64(len(dest))
+
+	dbx := files.New(config)
+
+	// TODO: make sure file name is correct
+	downloadArg := files.NewDownloadArg(drpn.drpPath)
+
+	meta, content, err := dbx.Download(downloadArg)
+	if err != nil {
+		return nil, 404
+	}
+	if off == int64(meta.Size) {
+		return fuse.ReadResultData(make([]byte, 0)), 0
+	}
+
+	// Here we'd need a better file reading mechanic ( so we know for sure we've read all )
+	b1 := make([]byte, meta.Size)
+	n1, err := content.Read(b1)
+	// if int64(n1) < destLen {
+	// 	destLen = int64(n1)
+	// }
+
+	fmt.Println(string(b1[:n1]))
+
+	// TRACTOR
+	var readSize int64
+	if int64(meta.Size) < destLen {
+		readSize = int64(meta.Size)
+	} else {
+		readSize = off + destLen
+	}
+
+	return fuse.ReadResultData(b1[off:readSize]), 0
+}
+
+var _ = (fs.NodeOpener)((*DrpFileNode)(nil))
+
+func (f *DrpFileNode) Open(ctx context.Context, openFlags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
+	return nil, 0, 0
 }
 
 func validatePath(p string) (path string, err error) {
@@ -289,14 +372,12 @@ func listDirTopLevel() error {
 
 var inoIterator uint64 = 2
 
-func AddFile(ctx context.Context, node *fs.Inode, fileName string) *fs.Inode {
+func AddFile(ctx context.Context, node *fs.Inode, fileName string, fullPath string) *fs.Inode {
+	// newfile := node.NewInode(ctx, operations, stable)
+	drpFileNode := DrpFileNode{}
+	drpFileNode.drpPath = fullPath
 	newfile := node.NewInode(
-		ctx, &fs.MemRegularFile{
-			Data: []byte("sample file data"),
-			Attr: fuse.Attr{
-				Mode: 0644,
-			},
-		}, fs.StableAttr{Ino: inoIterator})
+		ctx, &drpFileNode, fs.StableAttr{Ino: inoIterator})
 	node.AddChild(fileName, newfile, false)
 
 	inoIterator++
@@ -320,12 +401,6 @@ func AddFolder(ctx context.Context, node *fs.Inode, folderName string) *fs.Inode
 
 func ConstructTreeFromDrpPaths(ctx context.Context, r *HelloRoot, structure []DrpPath) {
 	// aici se va construi arborele
-	AddFolder(ctx, &r.Inode, "HelloDir")
-	AddFile(ctx, &r.Inode, "HelloFile")
-
-	fmt.Print("Generating tree")
-
-	fmt.Printf("Structure nodes %v", len(structure))
 
 	var m map[string](*fs.Inode) = make(map[string](*fs.Inode))
 
@@ -334,8 +409,8 @@ func ConstructTreeFromDrpPaths(ctx context.Context, r *HelloRoot, structure []Dr
 	for _, entry := range structure {
 		fmt.Println("Processing : " + entry.path)
 
-		var containingFolder = firstPartFromPath(entry.path) // -> ""
-		var newNodeName = lastFolderFromPath(entry.path)     // -> "dirA"
+		var containingFolder = firstPartFromPath(entry.path) // "/dirA" -> ""
+		var newNodeName = lastFolderFromPath(entry.path)     // 		-> "dirA"
 
 		fmt.Printf("containing folder : %v, newNodeName : %v \n", containingFolder, newNodeName)
 
@@ -344,7 +419,7 @@ func ConstructTreeFromDrpPaths(ctx context.Context, r *HelloRoot, structure []Dr
 		if entry.isFolder {
 			newNode = AddFolder(ctx, parentNode, newNodeName)
 		} else {
-			newNode = AddFile(ctx, parentNode, newNodeName)
+			newNode = AddFile(ctx, parentNode, newNodeName, entry.path)
 		}
 
 		m[containingFolder+"/"+newNodeName] = newNode
