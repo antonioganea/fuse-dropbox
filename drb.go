@@ -63,7 +63,13 @@ func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.
 	return 0
 }
 
+
+//folosim interfata NodeReader
 var _ = (fs.NodeReader)((*DrpFileNode)(nil))
+
+//Read se aplica pe un DrpFileNode 
+//array de bytes numit dest, oof int64 nr pe 64 biti -> ptr offset 
+//ultima paranteza return 
 
 func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
 	// drpn.mu.Lock()
@@ -93,7 +99,8 @@ func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte
 
 	fmt.Println(string(b1[:n1]))
 
-	// TRACTOR
+	// TRACTOR !!!!!!!!
+	// Chestia asta nu e facuta tocmai bn, dar merge <3
 	var readSize int64
 	if int64(meta.Size) < destLen {
 		readSize = int64(meta.Size)
@@ -101,10 +108,22 @@ func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte
 		readSize = off + destLen
 	}
 
+	//constructor sa faca un stream, e un SLICE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	//Alexandra mai citeste documentatia la go!!!!!
+	//0 e cod de eroare
 	return fuse.ReadResultData(b1[off:readSize]), 0
 }
 
 var _ = (fs.NodeOpener)((*DrpFileNode)(nil))
+
+//f = func
+//Open se aplica pe un pointer de tip DrpFileNode nuimt f (f e pointer)
+//context ca la daw
+//uint32 - integer unsigned pe 32 de biti
+//un flag se refera la chestiile pe care le combini - read, write, append (BinaryFlags sau BitFlags), 
+//ca sa nu tina 8 boolene care sa contina 8 biti, se tineua flag-uro pe biti => super COOL!!!!!! (se folosesc la chestii low-level)
+//ultima paranteza e return type-ul (in Go e misto ca poti sa ai return multiplu)
+//a doua paranteza reprezinta parametri
 
 func (f *DrpFileNode) Open(ctx context.Context, openFlags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	return nil, 0, 0
@@ -431,6 +450,39 @@ func ConstructTreeFromDrpPaths(ctx context.Context, r *HelloRoot, structure []Dr
 func ConstructTree(ctx context.Context, r *HelloRoot) {
 	ConstructTreeFromDrpPaths(ctx, r, getDropboxTreeStructure())
 }
+
+
+//Alexandra
+
+//interfata
+/*
+var _ = (fs.NodeWriter)((*DrpFileNode)(nil))
+
+func(drpn *DrpFileNode) Write(ctx context.Context, f FileHandle, data []byte, off int64) (written uint32, errno syscall.Errno) {
+	//open callback - event - linia 
+	//sourceLen := int64(len(dest))
+
+	return errno
+}
+
+func uploadOp() {
+	dbx := files.New(config)
+
+	downloadArg := files.NewDownloadArg("/file.txt")
+
+	meta, content, err := dbx.Download(downloadArg)
+	if err != nil {
+		return
+	}
+
+	// Here we'd need a better file reading mechanic ( so we know for sure we've read all )
+	b1 := make([]byte, meta.Size)
+	n1, err := content.Read(b1)
+	/////////////////////////
+
+	fmt.Println(string(b1[:n1]))
+}
+*/
 
 func drb_main() {
 	//initDbx()
