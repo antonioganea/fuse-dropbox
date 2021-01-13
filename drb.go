@@ -236,10 +236,6 @@ func initDbx() (err error) {
 
 	memorizedToken, err := readToken(configFileName)
 
-	// Replace here
-	var appKey = ""
-	var appSecret = ""
-
 	if err != nil {
 		conf := oauth2.Config{ // maybe a & reference here
 			ClientID:     appKey,
