@@ -5,7 +5,6 @@ import (
 	"flag"
 	"log"
 	"syscall"
-	"fmt"
 	"io"
 
 	"github.com/hanwen/go-fuse/fs"
@@ -23,11 +22,19 @@ type HelloRoot struct {
 
 type forUpdate struct {
 	x io.Reader
+	offset int
 }
 
 func (x *forUpdate) Read(buf []byte)(n int, err error) {
-	fmt.Println("da") 
-	return 1, nil
+	if(x.offset < 4) {
+		buf[0] = 's'
+		buf[1] = 't'
+		buf[2] = 'r'
+		buf[3] = 0;
+		x.offset = 4
+		return 4, nil
+	}
+	return 0, io.EOF
 }
 
 
@@ -61,13 +68,14 @@ func main() {
 	}
 
 	s := new(files.CommitInfo)
-	s.Path = "so.txt"
+	s.Path = "/so.txt"
 	s.Mode = &files.WriteMode{Tagged: dropbox.Tagged{"add"}}
 	s.Autorename = false
 	s.Mute = false
 	s.StrictConflict = false
 
 	t := new(forUpdate)
+	t.offset = 0
 	dbx := files.New(config)
 	dbx.Upload(s, t)
 
