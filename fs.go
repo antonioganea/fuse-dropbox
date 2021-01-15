@@ -4,8 +4,10 @@ import (
 	"context"
 	"flag"
 	"log"
+	"fmt"
 	"syscall"
 	"io"
+	"path/filepath"
 
 	"github.com/hanwen/go-fuse/fs"
 	"github.com/hanwen/go-fuse/fuse"
@@ -20,12 +22,12 @@ type HelloRoot struct {
 
 //Alexandra
 
-type forUpdate struct {
-	x io.Reader
+type virtualFile struct {
+	io.Reader
 	offset int
 }
 
-func (x *forUpdate) Read(buf []byte)(n int, err error) {
+func (x *virtualFile) Read(buf []byte)(n int, err error) {
 	if(x.offset < 4) {
 		buf[0] = 's'
 		buf[1] = 't'
@@ -47,8 +49,32 @@ func (r *HelloRoot) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.Att
 	return 0
 }
 
+func (r *HelloRoot) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (node *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
+	fmt.Println("nod creat: " + name)
+	fmt.Println(r)
+	myNode := &r.Inode
+	fullPath := filepath.Join(myNode.Path(myNode), name)
+	node = AddFile(ctx, myNode, name, fullPath)
+
+	s := new(files.CommitInfo)
+	s.Path = "/" + fullPath
+	s.Mode = &files.WriteMode{Tagged: dropbox.Tagged{"add"}}
+	s.Autorename = false
+	s.Mute = false
+	s.StrictConflict = false
+
+	t := new(virtualFile)
+	t.offset = 0
+	dbx := files.New(config)
+	dbx.Upload(s, t)
+
+	//return node, new(fs.FileHandle), 0, 0
+	return node, nil, 0, 0
+}
+
 var _ = (fs.NodeGetattrer)((*HelloRoot)(nil))
 var _ = (fs.NodeOnAdder)((*HelloRoot)(nil))
+var _ = (fs.NodeCreater)((*HelloRoot)(nil))
 
 func main() {
 	debug := flag.Bool("debug", false, "print debug data")
@@ -66,18 +92,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("Mount fail: %v\n", err)
 	}
-
-	s := new(files.CommitInfo)
-	s.Path = "/so.txt"
-	s.Mode = &files.WriteMode{Tagged: dropbox.Tagged{"add"}}
-	s.Autorename = false
-	s.Mute = false
-	s.StrictConflict = false
-
-	t := new(forUpdate)
-	t.offset = 0
-	dbx := files.New(config)
-	dbx.Upload(s, t)
-
+	
 	server.Wait()
 }
