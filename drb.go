@@ -526,6 +526,27 @@ func (drpn *DrpFileNode) Write(ctx context.Context, fh fs.FileHandle, data []byt
 	return uint32(len(data)), 0
 }
 
+//Alexandra trial error
+
+/*
+func Readdir(ctx context.Context) (DirStream, syscall.Errno) {
+	fmt.Println("DrpFileNode - NodeReader")
+	drpn.mu.Lock()
+	defer drpn.mu.Unlock()
+
+	end := int64(len(data)) + off
+	if int64(len(drpn.Data)) < end {
+		n := make([]byte, end)
+		copy(n, drpn.Data)
+		drpn.Data = n
+	}
+
+	copy(drpn.Data[off:off+int64(len(data))], data)
+
+	return uint32(len(data)), 0
+}
+*/
+
 func (drpn *DrpFileNode) Flush(ctx context.Context, f fs.FileHandle) syscall.Errno {
 	fmt.Println("DrpFileNode - flushed")
 	path, parent := drpn.Inode.Parent();
@@ -580,6 +601,7 @@ var _ = (fs.NodeSetlker)((*DrpFileNode)(nil))
 var _ = (fs.NodeSetlkwer)((*DrpFileNode)(nil))
 var _ = (fs.NodeSetlkwer)((*DrpFileNode)(nil))
 var _ = (fs.NodeSetattrer)((*DrpFileNode)(nil))
+var _ = (fs.NodeReader)((*DrpFileNode)(nil))
 
 func drb_main() {
 	//initDbx()
