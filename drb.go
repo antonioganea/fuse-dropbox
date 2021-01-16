@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"sync"
+	"syscall"
 
 	"golang.org/x/oauth2"
 
@@ -68,7 +68,6 @@ func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.
 	return 0
 }
 
-
 // Folosim interfata NodeReader.
 var _ = (fs.NodeReader)((*DrpFileNode)(nil))
 
@@ -121,7 +120,7 @@ var _ = (fs.NodeOpener)((*DrpFileNode)(nil))
 // Open se aplica pe un pointer de tip DrpFileNode numit f (f e pointer)
 // context ca la daw
 // uint32 - integer unsigned pe 32 de biti
-// un flag se refera la chestiile pe care le combini - read, write, append (BinaryFlags sau BitFlags), 
+// un flag se refera la chestiile pe care le combini - read, write, append (BinaryFlags sau BitFlags),
 // ca sa nu tina 8 boolene care sa contina 8 biti, se tineua flag-uro pe biti => super COOL!!!!!! (se folosesc la chestii low-level)
 func (f *DrpFileNode) Open(ctx context.Context, openFlags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	fmt.Println("DrpFileNode - open")
@@ -163,7 +162,7 @@ func writeToken(filePath string, token string) {
 	}
 }
 
-// Returns a list of paths that represent the DFS traversal 
+// Returns a list of paths that represent the DFS traversal
 // of the drobpox folder.
 func getDropboxTreeStructure() []DrpPath {
 	dbx := files.New(config)
@@ -460,7 +459,6 @@ func ConstructTreeFromDrpPaths(ctx context.Context, r *HelloRoot, structure []Dr
 		} else {
 			newNode = AddFile(ctx, parentNode, newNodeName, entry.path)
 		}
-		
 
 		m[containingFolder+"/"+newNodeName] = newNode
 
@@ -472,13 +470,12 @@ func ConstructTree(ctx context.Context, r *HelloRoot) {
 	ConstructTreeFromDrpPaths(ctx, r, getDropboxTreeStructure())
 }
 
-
 //Alexandra
 
 //interfata
 /*
 func(drpn *DrpFileNode) Write(ctx context.Context, f FileHandle, data []byte, off int64) (written uint32, errno syscall.Errno) {
-	//open callback - event - linia 
+	//open callback - event - linia
 	//sourceLen := int64(len(dest))
 
 	return errno
@@ -522,19 +519,19 @@ func (drpn *DrpFileNode) Write(ctx context.Context, fh fs.FileHandle, data []byt
 
 func (drpn *DrpFileNode) Flush(ctx context.Context, f fs.FileHandle) syscall.Errno {
 	fmt.Println("DrpFileNode - flushed")
-	path, parent := drpn.Inode.Parent();
+	path, parent := drpn.Inode.Parent()
 	Upload(ctx, parent, lastFolderFromPath(path), drpn.Data)
-	return 0;
+	return 0
 }
 
 func (drpn *DrpFileNode) Fsync(ctx context.Context, f fs.FileHandle, flags uint32) syscall.Errno {
 	fmt.Println("DrpFileNode - fsynced")
-	return 0;
+	return 0
 }
 
 func (drpn *DrpFileNode) Allocate(ctx context.Context, f fs.FileHandle, off uint64, size uint64, mode uint32) syscall.Errno {
 	fmt.Println("DrpFileNode - allocated")
-	return 0;
+	return 0
 }
 
 func (drpn *DrpFileNode) Getlk(ctx context.Context, f fs.FileHandle, owner uint64, lk *fuse.FileLock, flags uint32, out *fuse.FileLock) syscall.Errno {
