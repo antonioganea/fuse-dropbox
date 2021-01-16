@@ -69,13 +69,10 @@ func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.
 }
 
 
-//folosim interfata NodeReader
+// Folosim interfata NodeReader.
 var _ = (fs.NodeReader)((*DrpFileNode)(nil))
 
-//Read se aplica pe un DrpFileNode 
-//array de bytes numit dest, oof int64 nr pe 64 biti -> ptr offset 
-//ultima paranteza return 
-
+// Read se aplica pe un DrpFileNode.
 func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
 	// drpn.mu.Lock()
 	// defer drpn.mu.Unlock()
@@ -113,23 +110,19 @@ func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte
 		readSize = off + destLen
 	}
 
-	//constructor sa faca un stream, e un SLICE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-	//Alexandra mai citeste documentatia la go!!!!!
+	//constructor sa faca un stream, e un SLICE!!!!
 	//0 e cod de eroare
 	return fuse.ReadResultData(b1[off:readSize]), 0
 }
 
 var _ = (fs.NodeOpener)((*DrpFileNode)(nil))
 
-//f = func
-//Open se aplica pe un pointer de tip DrpFileNode nuimt f (f e pointer)
-//context ca la daw
-//uint32 - integer unsigned pe 32 de biti
-//un flag se refera la chestiile pe care le combini - read, write, append (BinaryFlags sau BitFlags), 
-//ca sa nu tina 8 boolene care sa contina 8 biti, se tineua flag-uro pe biti => super COOL!!!!!! (se folosesc la chestii low-level)
-//ultima paranteza e return type-ul (in Go e misto ca poti sa ai return multiplu)
-//a doua paranteza reprezinta parametri
-
+// f = func
+// Open se aplica pe un pointer de tip DrpFileNode numit f (f e pointer)
+// context ca la daw
+// uint32 - integer unsigned pe 32 de biti
+// un flag se refera la chestiile pe care le combini - read, write, append (BinaryFlags sau BitFlags), 
+// ca sa nu tina 8 boolene care sa contina 8 biti, se tineua flag-uro pe biti => super COOL!!!!!! (se folosesc la chestii low-level)
 func (f *DrpFileNode) Open(ctx context.Context, openFlags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	fmt.Println("DrpFileNode - open")
 	return new(fs.FileHandle), fuse.FOPEN_KEEP_CACHE, fs.OK
@@ -170,8 +163,8 @@ func writeToken(filePath string, token string) {
 	}
 }
 
-// returns a list of paths
-// that represent the DFS traversal of  the drobpox folder
+// Returns a list of paths that represent the DFS traversal 
+// of the drobpox folder.
 func getDropboxTreeStructure() []DrpPath {
 	dbx := files.New(config)
 
@@ -330,7 +323,7 @@ func Upload(ctx context.Context, rootNode *fs.Inode, fileName string, content []
 	return newNode
 }
 
-// Sends a get_metadata request for a given path and returns the response
+// Sends a get_metadata request for a given path and returns the response.
 func getFileMetadata(c files.Client, path string) (files.IsMetadata, error) {
 	arg := files.NewGetMetadataArg(path)
 
@@ -340,19 +333,6 @@ func getFileMetadata(c files.Client, path string) (files.IsMetadata, error) {
 	}
 
 	return res, nil
-}
-
-// /preda/raluca/antonio -> antonio
-// /preda/raluca -> raluca
-func lastFolderFromPath(path string) string {
-	slices := strings.Split(path, "/")
-	return slices[len(slices)-1]
-}
-
-// /preda/raluca/antonio -> /preda/raluca
-// /preda/raluca -> /preda
-func firstPartFromPath(path string) string {
-	return path[:strings.LastIndex(path, "/")]
 }
 
 func listDirTopLevel() error {
@@ -441,8 +421,25 @@ func AddFolder(ctx context.Context, node *fs.Inode, folderName string) *fs.Inode
 	return dir
 }
 
+// Utility functions for ConstructTreeFromDrpPaths:
+
+// Returns the string after the last '/'.
+// E.g: /preda/raluca/antonio -> antonio
+// 		/preda/raluca -> raluca
+func lastFolderFromPath(path string) string {
+	slices := strings.Split(path, "/")
+	return slices[len(slices)-1]
+}
+
+// Returns the string before the last '/'.
+// E.g: /preda/raluca/antonio -> /preda/raluca
+// 		/preda/raluca -> /preda
+func firstPartFromPath(path string) string {
+	return path[:strings.LastIndex(path, "/")]
+}
+
+// Callback --> constructs the tree from our dropbox :)
 func ConstructTreeFromDrpPaths(ctx context.Context, r *HelloRoot, structure []DrpPath) {
-	// aici se va construi arborele
 
 	var m map[string](*fs.Inode) = make(map[string](*fs.Inode))
 
@@ -480,8 +477,6 @@ func ConstructTree(ctx context.Context, r *HelloRoot) {
 
 //interfata
 /*
-var _ = (fs.NodeWriter)((*DrpFileNode)(nil))
-
 func(drpn *DrpFileNode) Write(ctx context.Context, f FileHandle, data []byte, off int64) (written uint32, errno syscall.Errno) {
 	//open callback - event - linia 
 	//sourceLen := int64(len(dest))
@@ -508,7 +503,6 @@ func uploadOp() {
 }
 */
 
-
 func (drpn *DrpFileNode) Write(ctx context.Context, fh fs.FileHandle, data []byte, off int64) (uint32, syscall.Errno) {
 	fmt.Println("DrpFileNode - writing")
 	drpn.mu.Lock()
@@ -525,27 +519,6 @@ func (drpn *DrpFileNode) Write(ctx context.Context, fh fs.FileHandle, data []byt
 
 	return uint32(len(data)), 0
 }
-
-//Alexandra trial error
-
-/*
-func Readdir(ctx context.Context) (DirStream, syscall.Errno) {
-	fmt.Println("DrpFileNode - NodeReader")
-	drpn.mu.Lock()
-	defer drpn.mu.Unlock()
-
-	end := int64(len(data)) + off
-	if int64(len(drpn.Data)) < end {
-		n := make([]byte, end)
-		copy(n, drpn.Data)
-		drpn.Data = n
-	}
-
-	copy(drpn.Data[off:off+int64(len(data))], data)
-
-	return uint32(len(data)), 0
-}
-*/
 
 func (drpn *DrpFileNode) Flush(ctx context.Context, f fs.FileHandle) syscall.Errno {
 	fmt.Println("DrpFileNode - flushed")

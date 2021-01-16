@@ -20,8 +20,6 @@ type HelloRoot struct {
 	fs.Inode
 }
 
-//Alexandra
-
 type virtualFile struct {
 	io.Reader
 	offset int
@@ -48,9 +46,9 @@ func (r *HelloRoot) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.Att
 }
 
 func (r *HelloRoot) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (node *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
-	//fmt.Println("nod creat: " + name)
-	//fmt.Println(r)
-	//newNode := Upload(ctx, &r.Inode, name)
+	// fmt.Println("nod creat: " + name)
+	// fmt.Println(r)
+	// newNode := Upload(ctx, &r.Inode, name)
 	rootNode :=  &r.Inode
 	fullPath := filepath.Join(rootNode.Path(nil), name)
 	newNode := AddFile(ctx, rootNode, name, fullPath)
