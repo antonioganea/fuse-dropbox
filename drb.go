@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"sync"
 
 	"golang.org/x/oauth2"
 
@@ -34,6 +35,10 @@ type DrpFileNode struct {
 
 	// drpPath is the path of this file/directory
 	drpPath string
+
+	mu   sync.Mutex
+	Data []byte
+	Attr fuse.Attr
 }
 
 // type NodeReader interface {
@@ -126,7 +131,8 @@ var _ = (fs.NodeOpener)((*DrpFileNode)(nil))
 //a doua paranteza reprezinta parametri
 
 func (f *DrpFileNode) Open(ctx context.Context, openFlags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
-	return nil, 0, 0
+	fmt.Println("DrpFileNode - open")
+	return new(fs.FileHandle), fuse.FOPEN_KEEP_CACHE, fs.OK
 }
 
 func validatePath(p string) (path string, err error) {
@@ -303,6 +309,27 @@ func downloadOp() {
 	fmt.Println(string(b1[:n1]))
 }
 
+func Upload(ctx context.Context, rootNode *fs.Inode, fileName string, content []byte) *fs.Inode {
+	fullPath := filepath.Join(rootNode.Path(rootNode), fileName)
+	newNode := AddFile(ctx, rootNode, fileName, fullPath)
+
+	s := new(files.CommitInfo)
+	s.Path = "/" + fullPath
+	s.Mode = &files.WriteMode{Tagged: dropbox.Tagged{"overwrite"}}
+	s.Autorename = false
+	s.Mute = false
+	s.StrictConflict = false
+
+	t := new(virtualFile)
+	t.Data = content
+	t.offset = 0
+	dbx := files.New(config)
+
+	dbx.Upload(s, t)
+
+	return newNode
+}
+
 // Sends a get_metadata request for a given path and returns the response
 func getFileMetadata(c files.Client, path string) (files.IsMetadata, error) {
 	arg := files.NewGetMetadataArg(path)
@@ -436,6 +463,7 @@ func ConstructTreeFromDrpPaths(ctx context.Context, r *HelloRoot, structure []Dr
 		} else {
 			newNode = AddFile(ctx, parentNode, newNodeName, entry.path)
 		}
+		
 
 		m[containingFolder+"/"+newNodeName] = newNode
 
@@ -479,6 +507,79 @@ func uploadOp() {
 	fmt.Println(string(b1[:n1]))
 }
 */
+
+
+func (drpn *DrpFileNode) Write(ctx context.Context, fh fs.FileHandle, data []byte, off int64) (uint32, syscall.Errno) {
+	fmt.Println("DrpFileNode - writing")
+	drpn.mu.Lock()
+	defer drpn.mu.Unlock()
+
+	end := int64(len(data)) + off
+	if int64(len(drpn.Data)) < end {
+		n := make([]byte, end)
+		copy(n, drpn.Data)
+		drpn.Data = n
+	}
+
+	copy(drpn.Data[off:off+int64(len(data))], data)
+
+	return uint32(len(data)), 0
+}
+
+func (drpn *DrpFileNode) Flush(ctx context.Context, f fs.FileHandle) syscall.Errno {
+	fmt.Println("DrpFileNode - flushed")
+	path, parent := drpn.Inode.Parent();
+	Upload(ctx, parent, lastFolderFromPath(path), drpn.Data)
+	return 0;
+}
+
+func (drpn *DrpFileNode) Fsync(ctx context.Context, f fs.FileHandle, flags uint32) syscall.Errno {
+	fmt.Println("DrpFileNode - fsynced")
+	return 0;
+}
+
+func (drpn *DrpFileNode) Allocate(ctx context.Context, f fs.FileHandle, off uint64, size uint64, mode uint32) syscall.Errno {
+	fmt.Println("DrpFileNode - allocated")
+	return 0;
+}
+
+func (drpn *DrpFileNode) Getlk(ctx context.Context, f fs.FileHandle, owner uint64, lk *fuse.FileLock, flags uint32, out *fuse.FileLock) syscall.Errno {
+	fmt.Println("DrpFileNode - getlk")
+	return 0
+}
+
+func (drpn *DrpFileNode) Setlk(ctx context.Context, f fs.FileHandle, owner uint64, lk *fuse.FileLock, flags uint32) syscall.Errno {
+	fmt.Println("DrpFileNode - setlk")
+	return 0
+}
+
+func (drpn *DrpFileNode) Setlkw(ctx context.Context, f fs.FileHandle, owner uint64, lk *fuse.FileLock, flags uint32) syscall.Errno {
+	fmt.Println("DrpFileNode - setlkw")
+	return 0
+}
+
+func (drpn *DrpFileNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.SetAttrIn, out *fuse.AttrOut) syscall.Errno {
+	fmt.Println("DrpFileNode - setattr")
+	drpn.mu.Lock()
+	defer drpn.mu.Unlock()
+
+	if sz, ok := in.GetSize(); ok {
+		drpn.Data = drpn.Data[:sz]
+	}
+	out.Attr = drpn.Attr
+	out.Size = uint64(len(drpn.Data))
+	return 0
+}
+
+var _ = (fs.NodeWriter)((*DrpFileNode)(nil))
+var _ = (fs.NodeFlusher)((*DrpFileNode)(nil))
+var _ = (fs.NodeFsyncer)((*DrpFileNode)(nil))
+var _ = (fs.NodeAllocater)((*DrpFileNode)(nil))
+var _ = (fs.NodeGetlker)((*DrpFileNode)(nil))
+var _ = (fs.NodeSetlker)((*DrpFileNode)(nil))
+var _ = (fs.NodeSetlkwer)((*DrpFileNode)(nil))
+var _ = (fs.NodeSetlkwer)((*DrpFileNode)(nil))
+var _ = (fs.NodeSetattrer)((*DrpFileNode)(nil))
 
 func drb_main() {
 	//initDbx()

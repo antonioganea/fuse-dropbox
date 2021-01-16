@@ -12,8 +12,8 @@ import (
 	"github.com/hanwen/go-fuse/fs"
 	"github.com/hanwen/go-fuse/fuse"
 
-	"github.com/dropbox/dropbox-sdk-go-unofficial/dropbox"
-	"github.com/dropbox/dropbox-sdk-go-unofficial/dropbox/files"
+	//"github.com/dropbox/dropbox-sdk-go-unofficial/dropbox"
+	//"github.com/dropbox/dropbox-sdk-go-unofficial/dropbox/files"
 )
 
 type HelloRoot struct {
@@ -25,20 +25,18 @@ type HelloRoot struct {
 type virtualFile struct {
 	io.Reader
 	offset int
+	Data []byte
 }
 
-func (x *virtualFile) Read(buf []byte)(n int, err error) {
-	if(x.offset < 4) {
-		buf[0] = 's'
-		buf[1] = 't'
-		buf[2] = 'r'
-		buf[3] = 0;
-		x.offset = 4
-		return 4, nil
+func (x *virtualFile) Read(buf []byte) (n int, err error) {
+	destLen := len(x.Data)
+	if(x.offset < destLen) {
+		copy(buf, x.Data)
+		x.offset = destLen
+		return destLen, nil
 	}
 	return 0, io.EOF
 }
-
 
 func (r *HelloRoot) OnAdd(ctx context.Context) {
 	ConstructTree(ctx, r)
@@ -50,31 +48,62 @@ func (r *HelloRoot) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.Att
 }
 
 func (r *HelloRoot) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (node *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
-	fmt.Println("nod creat: " + name)
-	fmt.Println(r)
-	myNode := &r.Inode
-	fullPath := filepath.Join(myNode.Path(myNode), name)
-	node = AddFile(ctx, myNode, name, fullPath)
+	//fmt.Println("nod creat: " + name)
+	//fmt.Println(r)
+	//newNode := Upload(ctx, &r.Inode, name)
+	rootNode :=  &r.Inode
+	fullPath := filepath.Join(rootNode.Path(nil), name)
+	newNode := AddFile(ctx, rootNode, name, fullPath)
 
-	s := new(files.CommitInfo)
-	s.Path = "/" + fullPath
-	s.Mode = &files.WriteMode{Tagged: dropbox.Tagged{"add"}}
-	s.Autorename = false
-	s.Mute = false
-	s.StrictConflict = false
+	return newNode, nil, 0, 0
+}
 
-	t := new(virtualFile)
-	t.offset = 0
-	dbx := files.New(config)
-	dbx.Upload(s, t)
+func (r *HelloRoot) Write(ctx context.Context, fh fs.FileHandle, data []byte, offset int64) (uint32, syscall.Errno) {
+	fmt.Println("helloroot - writing")
+	return 0, 0
+}
 
-	//return node, new(fs.FileHandle), 0, 0
-	return node, nil, 0, 0
+func (r *HelloRoot) Flush(ctx context.Context, f fs.FileHandle) syscall.Errno {
+	fmt.Println("helloroot - flushed")
+	return 0;
+}
+
+func (r *HelloRoot) Fsync(ctx context.Context, f fs.FileHandle, flags uint32) syscall.Errno {
+	fmt.Println("helloroot - fsynced")
+	return 0;
+}
+
+func (r *HelloRoot) Allocate(ctx context.Context, f fs.FileHandle, off uint64, size uint64, mode uint32) syscall.Errno {
+	fmt.Println("helloroot - allocated")
+	return 0;
+}
+
+func (r *HelloRoot) Getlk(ctx context.Context, f fs.FileHandle, owner uint64, lk *fuse.FileLock, flags uint32, out *fuse.FileLock) syscall.Errno {
+	fmt.Println("helloroot - getlk")
+	return 0
+}
+
+func (r *HelloRoot) Setlk(ctx context.Context, f fs.FileHandle, owner uint64, lk *fuse.FileLock, flags uint32) syscall.Errno {
+	fmt.Println("helloroot - setlk")
+	return 0
+}
+
+func (r *HelloRoot) Setlkw(ctx context.Context, f fs.FileHandle, owner uint64, lk *fuse.FileLock, flags uint32) syscall.Errno {
+	fmt.Println("helloroot - setlkw")
+	return 0
 }
 
 var _ = (fs.NodeGetattrer)((*HelloRoot)(nil))
 var _ = (fs.NodeOnAdder)((*HelloRoot)(nil))
 var _ = (fs.NodeCreater)((*HelloRoot)(nil))
+var _ = (fs.NodeWriter)((*HelloRoot)(nil))
+var _ = (fs.NodeFlusher)((*HelloRoot)(nil))
+var _ = (fs.NodeFsyncer)((*HelloRoot)(nil))
+var _ = (fs.NodeAllocater)((*HelloRoot)(nil))
+var _ = (fs.NodeGetlker)((*HelloRoot)(nil))
+var _ = (fs.NodeSetlker)((*HelloRoot)(nil))
+var _ = (fs.NodeSetlkwer)((*HelloRoot)(nil))
+
 
 func main() {
 	debug := flag.Bool("debug", false, "print debug data")
