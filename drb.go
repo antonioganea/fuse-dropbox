@@ -311,10 +311,7 @@ func downloadOp() {
 	fmt.Println(string(b1[:n1]))
 }
 
-func Upload(ctx context.Context, rootNode *fs.Inode, fileName string, content []byte) *fs.Inode {
-	fullPath := filepath.Join(rootNode.Path(nil), fileName)
-	newNode := AddFile(ctx, rootNode, fileName, fullPath)
-
+func Upload(ctx context.Context, newNode *fs.Inode, fullPath string, fileName string, content []byte) *fs.Inode {
 	s := new(files.CommitInfo)
 	s.Path = "/" + fullPath
 	s.Mode = &files.WriteMode{Tagged: dropbox.Tagged{"overwrite"}}
@@ -409,6 +406,7 @@ func AddFile(ctx context.Context, node *fs.Inode, fileName string, fullPath stri
 	// newfile := node.NewInode(ctx, operations, stable)
 	drpFileNode := DrpFileNode{}
 	drpFileNode.drpPath = fullPath
+	drpFileNode.modified = true
 	newfile := node.NewInode(
 		ctx, &drpFileNode, fs.StableAttr{Ino: inoIterator})
 	node.AddChild(fileName, newfile, false)
@@ -535,7 +533,10 @@ func (drpn *DrpFileNode) Flush(ctx context.Context, f fs.FileHandle) syscall.Err
 	fmt.Println("DrpFileNode - flushed")
 	if drpn.modified == true {
 		path, parent := drpn.Inode.Parent()
-		Upload(ctx, parent, lastFolderFromPath(path), drpn.Data)
+
+		fileName := lastFolderFromPath(path)
+		fullPath := filepath.Join(parent.Path(nil), fileName)
+		Upload(ctx, &drpn.Inode, fullPath, fileName, drpn.Data)
 		drpn.modified = false
 	}
 	return 0
@@ -601,6 +602,13 @@ func (drpn *DrpFileNode) Link(ctx context.Context, target fs.InodeEmbedder, name
 	return nil, 0
 }
 
+func (drpn *DrpFileNode) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (node *fs.Inode, errno syscall.Errno) {
+	rootNode := &drpn.Inode
+	newNode := AddFolder(ctx, rootNode, name)
+
+	return newNode, 0
+}
+
 var _ = (fs.NodeWriter)((*DrpFileNode)(nil))
 var _ = (fs.NodeFlusher)((*DrpFileNode)(nil))
 var _ = (fs.NodeFsyncer)((*DrpFileNode)(nil))
@@ -614,6 +622,7 @@ var _ = (fs.NodeGetattrer)((*DrpFileNode)(nil))
 var _ = (fs.NodeCreater)((*DrpFileNode)(nil))
 var _ = (fs.NodeMknoder)((*DrpFileNode)(nil))
 var _ = (fs.NodeLinker)((*DrpFileNode)(nil))
+var _ = (fs.NodeMkdirer)((*DrpFileNode)(nil))
 
 func drb_main() {
 	//initDbx()
