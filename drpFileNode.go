@@ -37,8 +37,6 @@ type DrpFileNode struct {
 
 // This is called by the kernel when it needs file meta attributes.
 func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
-	//bn.mu.Lock()
-	//defer bn.mu.Unlock()
 	//fmt.Println("DrpFileNode - getattr")
 
 	if bn.Inode.IsDir() {
@@ -64,8 +62,6 @@ func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.
 
 // This is called when the kernel tries to read from the file.
 func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
-	// drpn.mu.Lock()
-	// defer drpn.mu.Unlock()
 	fmt.Println("DrpFileNode - Read")
 
 	destLen := int64(len(dest))
