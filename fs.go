@@ -26,14 +26,30 @@ type virtualFile struct {
 }
 
 func (x *virtualFile) Read(buf []byte) (n int, err error) {
+
 	destLen := len(x.Data)
-	if x.offset < destLen {
-		copy(buf, x.Data)
-		x.offset = destLen
-		return destLen, nil
+	off := x.offset
+
+	var readEnd int
+	if destLen - off < destLen {
+		readEnd = destLen
+	} else {
+		readEnd = off + destLen
 	}
-	return 0, io.EOF
+
+	x.offset = readEnd
+
+	if off == readEnd {
+	//cazul 1: mai avem date de output, in care dam return > 0 
+		return 0, io.EOF
+	} else {
+	//cazul 2: nu mai avem date, dai return 0, io.EOF
+		copy(buf, x.Data[off:readEnd])
+		return readEnd - off, nil
+	}
+	
 }
+
 
 func (r *HelloRoot) OnAdd(ctx context.Context) {
 	ConstructTree(ctx, r)
