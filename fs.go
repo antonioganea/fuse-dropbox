@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
+	_"fmt"
 	"io"
 	"log"
-	"path/filepath"
+	_"path/filepath"
 	"syscall"
 
 	"github.com/hanwen/go-fuse/fs"
@@ -16,7 +16,7 @@ import (
 )
 
 type HelloRoot struct {
-	fs.Inode
+	DrpFileNode
 }
 
 type virtualFile struct {
@@ -40,7 +40,7 @@ func (r *HelloRoot) OnAdd(ctx context.Context) {
 }
 
 func (r *HelloRoot) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
-	out.Mode = 0755
+	out.Mode = 0777
 	return 0
 }
 
@@ -48,7 +48,7 @@ func (r *HelloRoot) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.Att
 // Creates a new child. It typically also returns a FileHandle as a
 // reference for future reads/writes.
 // Default is to return EROFS.
-func (r *HelloRoot) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (node *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
+/*func (r *HelloRoot) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (node *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	// fmt.Println("nod creat: " + name)
 	// fmt.Println(r)
 	// newNode := Upload(ctx, &r.Inode, name)
@@ -57,11 +57,11 @@ func (r *HelloRoot) Create(ctx context.Context, name string, flags uint32, mode 
 	newNode := AddFile(ctx, rootNode, name, fullPath)
 
 	return newNode, nil, 0, 0
-}
+}*/
 
 // Creates a directory entry and Inode.
 // Default is to return EROFS.
-func (r *HelloRoot) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (node *fs.Inode, errno syscall.Errno) {
+/*func (r *HelloRoot) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (node *fs.Inode, errno syscall.Errno) {
 	rootNode := &r.Inode
 	newNode := AddFolder(ctx, rootNode, name)
 
@@ -103,9 +103,19 @@ func (r *HelloRoot) Setlkw(ctx context.Context, f fs.FileHandle, owner uint64, l
 	return 0
 }
 
+func (r *HelloRoot) Mknod(ctx context.Context, name string, mode uint32, dev uint32, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
+	fmt.Println("HelloRoot - mknod")
+	return nil, 0
+}
+
+func (r *HelloRoot) Link(ctx context.Context, target fs.InodeEmbedder, name string, out *fuse.EntryOut) (node *fs.Inode, errno syscall.Errno) {
+	fmt.Println("HelloRoot - link")
+	return nil, 0
+}*/
+
 var _ = (fs.NodeGetattrer)((*HelloRoot)(nil))
 var _ = (fs.NodeOnAdder)((*HelloRoot)(nil))
-var _ = (fs.NodeCreater)((*HelloRoot)(nil))
+/*var _ = (fs.NodeCreater)((*HelloRoot)(nil))
 var _ = (fs.NodeMkdirer)((*HelloRoot)(nil))
 var _ = (fs.NodeWriter)((*HelloRoot)(nil))
 var _ = (fs.NodeFlusher)((*HelloRoot)(nil))
@@ -114,6 +124,8 @@ var _ = (fs.NodeAllocater)((*HelloRoot)(nil))
 var _ = (fs.NodeGetlker)((*HelloRoot)(nil))
 var _ = (fs.NodeSetlker)((*HelloRoot)(nil))
 var _ = (fs.NodeSetlkwer)((*HelloRoot)(nil))
+var _ = (fs.NodeMknoder)((*HelloRoot)(nil))
+var _ = (fs.NodeLinker)((*HelloRoot)(nil))*/
 
 func main() {
 	debug := flag.Bool("debug", false, "print debug data")

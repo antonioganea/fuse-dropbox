@@ -45,12 +45,14 @@ type DrpFileNode struct {
 // 	Read(ctx context.Context, f FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno)
 // }
 
-var _ = (fs.NodeGetattrer)((*DrpFileNode)(nil))
 
 func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
 	//bn.mu.Lock()
 	//defer bn.mu.Unlock()
-
+	//fmt.Println("DrpFileNode - getattr")
+	out.Attr = bn.Attr
+	out.Attr.Size = uint64(len(bn.Data))
+/*
 	dbx := files.New(config)
 
 	// TODO: make sure file name is correct
@@ -63,9 +65,10 @@ func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.
 
 	//bn.getattr(out)
 	out.Size = meta.Size
-	//out.SetTimes(nil, &bn.mtime, nil)
+	out.Mode = 0777
+	//out.SetTimes(nil, &bn.mtime, nil)*/
 
-	return 0
+	return fs.OK
 }
 
 // Folosim interfata NodeReader.
@@ -75,6 +78,7 @@ var _ = (fs.NodeReader)((*DrpFileNode)(nil))
 func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
 	// drpn.mu.Lock()
 	// defer drpn.mu.Unlock()
+	fmt.Println("DrpFileNode - Read")
 
 	destLen := int64(len(dest))
 
@@ -124,7 +128,7 @@ var _ = (fs.NodeOpener)((*DrpFileNode)(nil))
 // ca sa nu tina 8 boolene care sa contina 8 biti, se tineua flag-uro pe biti => super COOL!!!!!! (se folosesc la chestii low-level)
 func (f *DrpFileNode) Open(ctx context.Context, openFlags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	fmt.Println("DrpFileNode - open")
-	return new(fs.FileHandle), fuse.FOPEN_KEEP_CACHE, fs.OK
+	return nil, fuse.FOPEN_KEEP_CACHE, fs.OK
 }
 
 func validatePath(p string) (path string, err error) {
@@ -302,7 +306,7 @@ func downloadOp() {
 }
 
 func Upload(ctx context.Context, rootNode *fs.Inode, fileName string, content []byte) *fs.Inode {
-	fullPath := filepath.Join(rootNode.Path(rootNode), fileName)
+	fullPath := filepath.Join(rootNode.Path(nil), fileName)
 	newNode := AddFile(ctx, rootNode, fileName, fullPath)
 
 	s := new(files.CommitInfo)
@@ -311,6 +315,8 @@ func Upload(ctx context.Context, rootNode *fs.Inode, fileName string, content []
 	s.Autorename = false
 	s.Mute = false
 	s.StrictConflict = false
+
+	fmt.Println("Uploading at path: " + s.Path)
 
 	t := new(virtualFile)
 	t.Data = content
@@ -408,10 +414,10 @@ func AddFile(ctx context.Context, node *fs.Inode, fileName string, fullPath stri
 
 func AddFolder(ctx context.Context, node *fs.Inode, folderName string) *fs.Inode {
 	dir := node.NewInode(
-		ctx, &fs.MemRegularFile{
+		ctx, &DrpFileNode{
 			Data: []byte("sample dir data"),
 			Attr: fuse.Attr{
-				Mode: 0644,
+				Mode: 0777,
 			},
 		}, fs.StableAttr{Ino: inoIterator, Mode: fuse.S_IFDIR})
 	node.AddChild(folderName, dir, false)
@@ -444,6 +450,7 @@ func ConstructTreeFromDrpPaths(ctx context.Context, r *HelloRoot, structure []Dr
 
 	m[""] = &r.Inode
 
+	fmt.Println("Constructing tree")	
 	for _, entry := range structure {
 		fmt.Println("Processing : " + entry.path)
 
@@ -562,6 +569,28 @@ func (drpn *DrpFileNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.
 	return 0
 }
 
+
+func (drpn *DrpFileNode) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (node *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
+	fmt.Println("nod creat: " + name)
+	//fmt.Println(r)
+	//newNode := Upload(ctx, &r.Inode, name)
+	rootNode :=  &drpn.Inode
+	fullPath := filepath.Join(rootNode.Path(nil), name)
+	newNode := AddFile(ctx, rootNode, name, fullPath)
+
+	return newNode, nil, 0, 0
+}
+
+func (drpn *DrpFileNode) Mknod(ctx context.Context, name string, mode uint32, dev uint32, out *fuse.EntryOut) (*fs.Inode, syscall.Errno) {
+	fmt.Println("DrpFileNode - mknod")
+	return nil, 0
+}
+
+func (drpn *DrpFileNode) Link(ctx context.Context, target fs.InodeEmbedder, name string, out *fuse.EntryOut) (node *fs.Inode, errno syscall.Errno) {
+	fmt.Println("DrpFileNode - link")
+	return nil, 0
+}
+
 var _ = (fs.NodeWriter)((*DrpFileNode)(nil))
 var _ = (fs.NodeFlusher)((*DrpFileNode)(nil))
 var _ = (fs.NodeFsyncer)((*DrpFileNode)(nil))
@@ -572,6 +601,10 @@ var _ = (fs.NodeSetlkwer)((*DrpFileNode)(nil))
 var _ = (fs.NodeSetlkwer)((*DrpFileNode)(nil))
 var _ = (fs.NodeSetattrer)((*DrpFileNode)(nil))
 var _ = (fs.NodeReader)((*DrpFileNode)(nil))
+var _ = (fs.NodeGetattrer)((*DrpFileNode)(nil))
+var _ = (fs.NodeCreater)((*DrpFileNode)(nil))
+var _ = (fs.NodeMknoder)((*DrpFileNode)(nil))
+var _ = (fs.NodeLinker)((*DrpFileNode)(nil))
 
 func drb_main() {
 	//initDbx()
