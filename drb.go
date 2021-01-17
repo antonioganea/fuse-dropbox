@@ -36,16 +36,11 @@ type DrpFileNode struct {
 	// drpPath is the path of this file/directory
 	drpPath string
 
-	mu   sync.Mutex
-	Data []byte
-	Attr fuse.Attr
+	mu       sync.Mutex
+	Data     []byte
+	Attr     fuse.Attr
 	modified bool
 }
-
-// type NodeReader interface {
-// 	Read(ctx context.Context, f FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno)
-// }
-
 
 func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
 	//bn.mu.Lock()
@@ -57,11 +52,9 @@ func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.
 		out.Attr.Size = uint64(len(bn.Data))
 		return fs.OK
 	}
-	
 
 	dbx := files.New(config)
 
-	// TODO: make sure file name is correct
 	downloadArg := files.NewDownloadArg(bn.drpPath)
 
 	meta, _, err := dbx.Download(downloadArg)
@@ -69,18 +62,12 @@ func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.
 		return 404
 	}
 
-	//bn.getattr(out)
 	out.Size = meta.Size
 	out.Mode = 0777
-	//out.SetTimes(nil, &bn.mtime, nil)
 
 	return fs.OK
 }
 
-// Folosim interfata NodeReader.
-var _ = (fs.NodeReader)((*DrpFileNode)(nil))
-
-// Read se aplica pe un DrpFileNode.
 func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
 	// drpn.mu.Lock()
 	// defer drpn.mu.Unlock()
@@ -100,35 +87,21 @@ func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte
 		return fuse.ReadResultData(make([]byte, 0)), 0
 	}
 
-	// Here we'd need a better file reading mechanic ( so we know for sure we've read all )
 	b1 := make([]byte, meta.Size)
 	n1, err := content.Read(b1)
-	// if int64(n1) < destLen {
-	// 	destLen = int64(n1)
-	// }
 
 	fmt.Println(string(b1[:n1]))
 
 	var readEnd int64
-	if int64(meta.Size) - off < destLen {
+	if int64(meta.Size)-off < destLen {
 		readEnd = int64(meta.Size)
 	} else {
 		readEnd = off + destLen
 	}
 
-	//constructor sa faca un stream, e un SLICE!!!!
-	//0 e cod de eroare
 	return fuse.ReadResultData(b1[off:readEnd]), 0
 }
 
-var _ = (fs.NodeOpener)((*DrpFileNode)(nil))
-
-// f = func
-// Open se aplica pe un pointer de tip DrpFileNode numit f (f e pointer)
-// context ca la daw
-// uint32 - integer unsigned pe 32 de biti
-// un flag se refera la chestiile pe care le combini - read, write, append (BinaryFlags sau BitFlags),
-// ca sa nu tina 8 boolene care sa contina 8 biti, se tineua flag-uro pe biti => super COOL!!!!!! (se folosesc la chestii low-level)
 func (f *DrpFileNode) Open(ctx context.Context, openFlags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	fmt.Println("DrpFileNode - open")
 	return new(fs.FileHandle), fuse.FOPEN_KEEP_CACHE, fs.OK
@@ -242,7 +215,7 @@ func initDbx() (err error) {
 	memorizedToken, err := readToken(configFileName)
 
 	if err != nil {
-		conf := oauth2.Config{ // maybe a & reference here
+		conf := oauth2.Config{
 			ClientID:     appKey,
 			ClientSecret: appSecret,
 			Endpoint:     dropbox.OAuthEndpoint(""),
@@ -278,36 +251,6 @@ func initDbx() (err error) {
 	return
 }
 
-func copyOperation() error {
-	// Here we do some basic operation : copying file.txt into /dirA/newfile.txt
-	dbx := files.New(config)
-
-	relocArg := files.NewRelocationArg("/file.txt", "/dirA/copiedFile.txt")
-
-	if _, err := dbx.CopyV2(relocArg); err != nil {
-		return err
-	}
-	return nil
-}
-
-func downloadOp() {
-	dbx := files.New(config)
-
-	downloadArg := files.NewDownloadArg("/file.txt")
-
-	meta, content, err := dbx.Download(downloadArg)
-	if err != nil {
-		return
-	}
-
-	// Here we'd need a better file reading mechanic ( so we know for sure we've read all )
-	b1 := make([]byte, meta.Size)
-	n1, err := content.Read(b1)
-	/////////////////////////
-
-	fmt.Println(string(b1[:n1]))
-}
-
 func Upload(ctx context.Context, newNode *fs.Inode, fullPath string, fileName string, content []byte) *fs.Inode {
 	s := new(files.CommitInfo)
 	s.Path = "/" + fullPath
@@ -340,67 +283,9 @@ func getFileMetadata(c files.Client, path string) (files.IsMetadata, error) {
 	return res, nil
 }
 
-func listDirTopLevel() error {
-	dbx := files.New(config)
-
-	arg := files.NewListFolderArg("")
-	arg.Recursive = false
-
-	res, err := dbx.ListFolder(arg)
-	var entries []files.IsMetadata
-	if err != nil {
-		switch e := err.(type) {
-		case files.ListFolderAPIError:
-			// Don't treat a "not_folder" error as fatal; recover by sending a
-			// get_metadata request for the same path and using that response instead.
-			if e.EndpointError.Path.Tag == files.LookupErrorNotFolder {
-				var metaRes files.IsMetadata
-				metaRes, err = getFileMetadata(dbx, "/")
-				entries = []files.IsMetadata{metaRes}
-			} else {
-				return err
-			}
-		default:
-			return err
-		}
-
-		// Return if there's an error other than "not_folder" or if the follow-up
-		// metadata request fails.
-		if err != nil {
-			return err
-		}
-	} else {
-		entries = res.Entries
-
-		for res.HasMore {
-			arg := files.NewListFolderContinueArg(res.Cursor)
-
-			res, err = dbx.ListFolderContinue(arg)
-			if err != nil {
-				return err
-			}
-
-			entries = append(entries, res.Entries...)
-		}
-	}
-
-	for _, entry := range entries {
-		switch f := entry.(type) {
-		case *files.FileMetadata:
-			//printFileMetadata(w, f)
-			fmt.Println(f.PathDisplay)
-		case *files.FolderMetadata:
-			//printFolderMetadata(w, f)
-			fmt.Println(f.PathDisplay)
-		}
-	}
-	return err
-}
-
 var inoIterator uint64 = 2
 
 func AddFile(ctx context.Context, node *fs.Inode, fileName string, fullPath string, modified bool) *fs.Inode {
-	// newfile := node.NewInode(ctx, operations, stable)
 	drpFileNode := DrpFileNode{}
 	drpFileNode.drpPath = fullPath
 	drpFileNode.modified = modified
@@ -444,14 +329,14 @@ func firstPartFromPath(path string) string {
 	return path[:strings.LastIndex(path, "/")]
 }
 
-// Callback --> constructs the tree from our dropbox :)
+// Constructs the tree from our dropbox :)
 func ConstructTreeFromDrpPaths(ctx context.Context, r *HelloRoot, structure []DrpPath) {
 
 	var m map[string](*fs.Inode) = make(map[string](*fs.Inode))
 
 	m[""] = &r.Inode
 
-	fmt.Println("Constructing tree")	
+	fmt.Println("Constructing tree")
 	for _, entry := range structure {
 		fmt.Println("Processing : " + entry.path)
 
@@ -477,36 +362,6 @@ func ConstructTreeFromDrpPaths(ctx context.Context, r *HelloRoot, structure []Dr
 func ConstructTree(ctx context.Context, r *HelloRoot) {
 	ConstructTreeFromDrpPaths(ctx, r, getDropboxTreeStructure())
 }
-
-//Alexandra
-
-//interfata
-/*
-func(drpn *DrpFileNode) Write(ctx context.Context, f FileHandle, data []byte, off int64) (written uint32, errno syscall.Errno) {
-	//open callback - event - linia
-	//sourceLen := int64(len(dest))
-
-	return errno
-}
-
-func uploadOp() {
-	dbx := files.New(config)
-
-	downloadArg := files.NewDownloadArg("/file.txt")
-
-	meta, content, err := dbx.Download(downloadArg)
-	if err != nil {
-		return
-	}
-
-	// Here we'd need a better file reading mechanic ( so we know for sure we've read all )
-	b1 := make([]byte, meta.Size)
-	n1, err := content.Read(b1)
-	/////////////////////////
-
-	fmt.Println(string(b1[:n1]))
-}
-*/
 
 func (drpn *DrpFileNode) Write(ctx context.Context, fh fs.FileHandle, data []byte, off int64) (uint32, syscall.Errno) {
 	fmt.Println("DrpFileNode - writing")
@@ -579,9 +434,7 @@ func (drpn *DrpFileNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.
 
 func (drpn *DrpFileNode) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (node *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	fmt.Println("nod creat: " + name)
-	//fmt.Println(r)
-	//newNode := Upload(ctx, &r.Inode, name)
-	rootNode :=  &drpn.Inode
+	rootNode := &drpn.Inode
 	fullPath := "/" + filepath.Join(rootNode.Path(nil), name)
 	newNode := AddFile(ctx, rootNode, name, fullPath, true)
 
@@ -601,8 +454,8 @@ func (drpn *DrpFileNode) Link(ctx context.Context, target fs.InodeEmbedder, name
 // Uploads folder to Dropbox.
 func UploadFolder(fullPath string) {
 	createFolderArg := files.CreateFolderArg{
-		Path: fullPath,
-		Autorename: false,		
+		Path:       fullPath,
+		Autorename: false,
 	}
 
 	dbx := files.New(config)
@@ -616,15 +469,15 @@ func (drpn *DrpFileNode) Mkdir(ctx context.Context, name string, mode uint32, ou
 
 	fullPath := "/" + filepath.Join(rootNode.Path(nil), name)
 	UploadFolder(fullPath)
-	
+
 	return newNode, 0
 }
 
 func UploadDelete(drpn *DrpFileNode, name string) {
-	fullPath := "/" + filepath.Join(drpn.Inode.Path(nil), name) 
+	fullPath := "/" + filepath.Join(drpn.Inode.Path(nil), name)
 	fmt.Println(fullPath)
 	deleteArg := files.DeleteArg{
-		Path: fullPath,	
+		Path: fullPath,
 	}
 	dbx := files.New(config)
 	dbx.DeleteV2(&deleteArg)
@@ -642,6 +495,8 @@ func (drpn *DrpFileNode) Rmdir(ctx context.Context, name string) syscall.Errno {
 	return 0
 }
 
+var _ = (fs.NodeOpener)((*DrpFileNode)(nil))
+var _ = (fs.NodeReader)((*DrpFileNode)(nil))
 var _ = (fs.NodeWriter)((*DrpFileNode)(nil))
 var _ = (fs.NodeFlusher)((*DrpFileNode)(nil))
 var _ = (fs.NodeFsyncer)((*DrpFileNode)(nil))
@@ -658,10 +513,3 @@ var _ = (fs.NodeLinker)((*DrpFileNode)(nil))
 var _ = (fs.NodeMkdirer)((*DrpFileNode)(nil))
 var _ = (fs.NodeUnlinker)((*DrpFileNode)(nil))
 var _ = (fs.NodeRmdirer)((*DrpFileNode)(nil))
-
-func drb_main() {
-	//initDbx()
-	//copyOperation()
-	//downloadOp()
-	//listDirTopLevel()
-}
