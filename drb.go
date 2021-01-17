@@ -598,12 +598,25 @@ func (drpn *DrpFileNode) Link(ctx context.Context, target fs.InodeEmbedder, name
 	return nil, 0
 }
 
+// Uploads folder to Dropbox.
+func UploadFolder(fullPath string) {
+	createFolderArg := files.CreateFolderArg{
+		Path: fullPath,
+		Autorename: false,		
+	}
+
+	dbx := files.New(config)
+	dbx.CreateFolderV2(&createFolderArg)
+}
 
 func (drpn *DrpFileNode) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (node *fs.Inode, errno syscall.Errno) {
 	fmt.Println("DrpFileNode - Mkdir")
 	rootNode := &drpn.Inode
 	newNode := AddFolder(ctx, rootNode, name)
 
+	fullPath := "/" + filepath.Join(rootNode.Path(nil), name)
+	UploadFolder(fullPath)
+	
 	return newNode, 0
 }
 
