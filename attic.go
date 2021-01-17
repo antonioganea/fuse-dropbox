@@ -2,12 +2,25 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/dropbox/dropbox-sdk-go-unofficial/dropbox/files"
 )
 
 // WORKING UNUSED/DEPRECATED FUNCTIONS
 // mostly used for testing while developing
+
+func validatePath(p string) (path string, err error) {
+	path = p
+
+	if !strings.HasPrefix(path, "/") {
+		path = fmt.Sprintf("/%s", path)
+	}
+
+	path = strings.TrimSuffix(path, "/")
+
+	return
+}
 
 func copyOperation() error {
 	// Here we do some basic operation : copying file.txt into /dirA/newfile.txt

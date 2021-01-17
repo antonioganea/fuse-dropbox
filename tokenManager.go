@@ -11,6 +11,12 @@ import (
 	"golang.org/x/oauth2"
 )
 
+const (
+	configFileName = "AccessToken"
+)
+
+var config dropbox.Config
+
 func readToken(filePath string) (string, error) {
 	b, err := ioutil.ReadFile(filePath)
 	if err != nil {
