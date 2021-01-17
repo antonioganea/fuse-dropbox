@@ -579,14 +579,12 @@ func (drpn *DrpFileNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.
 	return 0
 }
 
-// TODO: E o eroare cand facem un fisier, dar daca o ignoram merge. Ceva 404
-// TODO: Nu putem deschide un fisier creat decat daca il redownloadam
 func (drpn *DrpFileNode) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (node *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	fmt.Println("nod creat: " + name)
 	//fmt.Println(r)
 	//newNode := Upload(ctx, &r.Inode, name)
 	rootNode :=  &drpn.Inode
-	fullPath := filepath.Join(rootNode.Path(nil), name)
+	fullPath := "/" + filepath.Join(rootNode.Path(nil), name)
 	newNode := AddFile(ctx, rootNode, name, fullPath)
 
 	return newNode, nil, 0, 0
@@ -603,7 +601,6 @@ func (drpn *DrpFileNode) Link(ctx context.Context, target fs.InodeEmbedder, name
 }
 
 
-// TODO: Bug: creeaza un fisier in loc de folder??
 func (drpn *DrpFileNode) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (node *fs.Inode, errno syscall.Errno) {
 	fmt.Println("DrpFileNode - Mkdir")
 	rootNode := &drpn.Inode
