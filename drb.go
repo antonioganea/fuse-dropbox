@@ -620,7 +620,27 @@ func (drpn *DrpFileNode) Mkdir(ctx context.Context, name string, mode uint32, ou
 	return newNode, 0
 }
 
-//func (drpn *DrpFileNode) Unlink(ctx context.Context, name string) syscall.Errno
+func UploadDelete(drpn *DrpFileNode, name string) {
+	fullPath := "/" + filepath.Join(drpn.Inode.Path(nil), name) 
+	fmt.Println(fullPath)
+	deleteArg := files.DeleteArg{
+		Path: fullPath,	
+	}
+	dbx := files.New(config)
+	dbx.DeleteV2(&deleteArg)
+}
+
+func (drpn *DrpFileNode) Unlink(ctx context.Context, name string) syscall.Errno {
+	fmt.Println("DrpFileNode - Unlink")
+	UploadDelete(drpn, name)
+	return 0
+}
+
+func (drpn *DrpFileNode) Rmdir(ctx context.Context, name string) syscall.Errno {
+	fmt.Println("DrpFileNode - Rmdir")
+	UploadDelete(drpn, name)
+	return 0
+}
 
 var _ = (fs.NodeWriter)((*DrpFileNode)(nil))
 var _ = (fs.NodeFlusher)((*DrpFileNode)(nil))
@@ -636,6 +656,8 @@ var _ = (fs.NodeCreater)((*DrpFileNode)(nil))
 var _ = (fs.NodeMknoder)((*DrpFileNode)(nil))
 var _ = (fs.NodeLinker)((*DrpFileNode)(nil))
 var _ = (fs.NodeMkdirer)((*DrpFileNode)(nil))
+var _ = (fs.NodeUnlinker)((*DrpFileNode)(nil))
+var _ = (fs.NodeRmdirer)((*DrpFileNode)(nil))
 
 func drb_main() {
 	//initDbx()
