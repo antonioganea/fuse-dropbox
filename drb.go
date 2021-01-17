@@ -51,9 +51,14 @@ func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.
 	//bn.mu.Lock()
 	//defer bn.mu.Unlock()
 	//fmt.Println("DrpFileNode - getattr")
-	out.Attr = bn.Attr
-	out.Attr.Size = uint64(len(bn.Data))
-/*
+
+	if bn.Inode.IsDir() {
+		out.Attr = bn.Attr
+		out.Attr.Size = uint64(len(bn.Data))
+		return fs.OK
+	}
+	
+
 	dbx := files.New(config)
 
 	// TODO: make sure file name is correct
@@ -67,7 +72,7 @@ func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.
 	//bn.getattr(out)
 	out.Size = meta.Size
 	out.Mode = 0777
-	//out.SetTimes(nil, &bn.mtime, nil)*/
+	//out.SetTimes(nil, &bn.mtime, nil)
 
 	return fs.OK
 }
