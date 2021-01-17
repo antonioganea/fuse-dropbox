@@ -109,18 +109,16 @@ func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte
 
 	fmt.Println(string(b1[:n1]))
 
-	// TRACTOR !!!!!!!!
-	// Chestia asta nu e facuta tocmai bn, dar merge <3
-	var readSize int64
-	if int64(meta.Size) < destLen {
-		readSize = int64(meta.Size)
+	var readEnd int64
+	if int64(meta.Size) - off < destLen {
+		readEnd = int64(meta.Size)
 	} else {
-		readSize = off + destLen
+		readEnd = off + destLen
 	}
 
 	//constructor sa faca un stream, e un SLICE!!!!
 	//0 e cod de eroare
-	return fuse.ReadResultData(b1[off:readSize]), 0
+	return fuse.ReadResultData(b1[off:readEnd]), 0
 }
 
 var _ = (fs.NodeOpener)((*DrpFileNode)(nil))
@@ -401,11 +399,11 @@ func listDirTopLevel() error {
 
 var inoIterator uint64 = 2
 
-func AddFile(ctx context.Context, node *fs.Inode, fileName string, fullPath string) *fs.Inode {
+func AddFile(ctx context.Context, node *fs.Inode, fileName string, fullPath string, modified bool) *fs.Inode {
 	// newfile := node.NewInode(ctx, operations, stable)
 	drpFileNode := DrpFileNode{}
 	drpFileNode.drpPath = fullPath
-	drpFileNode.modified = true
+	drpFileNode.modified = modified
 	newfile := node.NewInode(
 		ctx, &drpFileNode, fs.StableAttr{Ino: inoIterator})
 	node.AddChild(fileName, newfile, false)
@@ -467,7 +465,7 @@ func ConstructTreeFromDrpPaths(ctx context.Context, r *HelloRoot, structure []Dr
 		if entry.isFolder {
 			newNode = AddFolder(ctx, parentNode, newNodeName)
 		} else {
-			newNode = AddFile(ctx, parentNode, newNodeName, entry.path)
+			newNode = AddFile(ctx, parentNode, newNodeName, entry.path, false)
 		}
 
 		m[containingFolder+"/"+newNodeName] = newNode
@@ -585,7 +583,7 @@ func (drpn *DrpFileNode) Create(ctx context.Context, name string, flags uint32, 
 	//newNode := Upload(ctx, &r.Inode, name)
 	rootNode :=  &drpn.Inode
 	fullPath := "/" + filepath.Join(rootNode.Path(nil), name)
-	newNode := AddFile(ctx, rootNode, name, fullPath)
+	newNode := AddFile(ctx, rootNode, name, fullPath, true)
 
 	return newNode, nil, 0, 0
 }
@@ -608,6 +606,8 @@ func (drpn *DrpFileNode) Mkdir(ctx context.Context, name string, mode uint32, ou
 
 	return newNode, 0
 }
+
+//func (drpn *DrpFileNode) Unlink(ctx context.Context, name string) syscall.Errno
 
 var _ = (fs.NodeWriter)((*DrpFileNode)(nil))
 var _ = (fs.NodeFlusher)((*DrpFileNode)(nil))
