@@ -1,3 +1,6 @@
+// WORKING UNUSED/DEPRECATED FUNCTIONS
+// mostly used for testing while developing
+
 package main
 
 import (
@@ -6,9 +9,6 @@ import (
 
 	"github.com/dropbox/dropbox-sdk-go-unofficial/dropbox/files"
 )
-
-// WORKING UNUSED/DEPRECATED FUNCTIONS
-// mostly used for testing while developing
 
 func validatePath(p string) (path string, err error) {
 	path = p

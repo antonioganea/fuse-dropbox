@@ -1,3 +1,8 @@
+/*
+Generates Tree when first Downloaded
+When first starting the tool, builder.go  
+*/
+
 package main
 
 import (
