@@ -39,6 +39,7 @@ type DrpFileNode struct {
 	mu   sync.Mutex
 	Data []byte
 	Attr fuse.Attr
+	modified bool
 }
 
 // type NodeReader interface {
@@ -128,7 +129,7 @@ var _ = (fs.NodeOpener)((*DrpFileNode)(nil))
 // ca sa nu tina 8 boolene care sa contina 8 biti, se tineua flag-uro pe biti => super COOL!!!!!! (se folosesc la chestii low-level)
 func (f *DrpFileNode) Open(ctx context.Context, openFlags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	fmt.Println("DrpFileNode - open")
-	return nil, fuse.FOPEN_KEEP_CACHE, fs.OK
+	return new(fs.FileHandle), fuse.FOPEN_KEEP_CACHE, fs.OK
 }
 
 func validatePath(p string) (path string, err error) {
@@ -520,14 +521,18 @@ func (drpn *DrpFileNode) Write(ctx context.Context, fh fs.FileHandle, data []byt
 	}
 
 	copy(drpn.Data[off:off+int64(len(data))], data)
+	drpn.modified = true
 
 	return uint32(len(data)), 0
 }
 
 func (drpn *DrpFileNode) Flush(ctx context.Context, f fs.FileHandle) syscall.Errno {
 	fmt.Println("DrpFileNode - flushed")
-	path, parent := drpn.Inode.Parent()
-	Upload(ctx, parent, lastFolderFromPath(path), drpn.Data)
+	if drpn.modified == true {
+		path, parent := drpn.Inode.Parent()
+		Upload(ctx, parent, lastFolderFromPath(path), drpn.Data)
+		drpn.modified = false
+	}
 	return 0
 }
 
@@ -600,7 +605,6 @@ var _ = (fs.NodeSetlker)((*DrpFileNode)(nil))
 var _ = (fs.NodeSetlkwer)((*DrpFileNode)(nil))
 var _ = (fs.NodeSetlkwer)((*DrpFileNode)(nil))
 var _ = (fs.NodeSetattrer)((*DrpFileNode)(nil))
-var _ = (fs.NodeReader)((*DrpFileNode)(nil))
 var _ = (fs.NodeGetattrer)((*DrpFileNode)(nil))
 var _ = (fs.NodeCreater)((*DrpFileNode)(nil))
 var _ = (fs.NodeMknoder)((*DrpFileNode)(nil))
