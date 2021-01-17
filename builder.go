@@ -1,6 +1,10 @@
 /*
-Generates Tree when first Downloaded
-When first starting the tool, builder.go  
+When first starting the tool, ConstructTree is called
+from the main function of fs.go.
+
+This file has all the functionality the daemon needs
+to create the file system structure (tree + files
++ folders).
 */
 
 package main
@@ -13,8 +17,11 @@ import (
 	"golang.org/x/net/context"
 )
 
+// Every node in the filesystem needs a separate inode number.
+// This global variable should be ++ incremented after each usage.
 var inoIterator uint64 = 2
 
+// Adds a file inode in the virtual filesystem tree.
 func AddFile(ctx context.Context, node *fs.Inode, fileName string, fullPath string, modified bool) *fs.Inode {
 	drpFileNode := DrpFileNode{}
 	drpFileNode.drpPath = fullPath
@@ -28,6 +35,7 @@ func AddFile(ctx context.Context, node *fs.Inode, fileName string, fullPath stri
 	return newfile
 }
 
+// Adds a folder inode in the virtual filesystem tree.
 func AddFolder(ctx context.Context, node *fs.Inode, folderName string) *fs.Inode {
 	dir := node.NewInode(
 		ctx, &DrpFileNode{
@@ -43,8 +51,11 @@ func AddFolder(ctx context.Context, node *fs.Inode, folderName string) *fs.Inode
 }
 
 // Constructs the tree from our dropbox :)
+// Given an array of DrpPaths ( a DrpPath is any path that exists
+// as a file or folder in dropbox ), it generates the VFS tree.
+// The contents of the files are NOT downloaded when the program
+// is run. They are downloaded on the fly later, on open calls.
 func ConstructTreeFromDrpPaths(ctx context.Context, r *HelloRoot, structure []DrpPath) {
-
 	var m map[string](*fs.Inode) = make(map[string](*fs.Inode))
 
 	m[""] = &r.Inode
@@ -72,6 +83,10 @@ func ConstructTreeFromDrpPaths(ctx context.Context, r *HelloRoot, structure []Dr
 	}
 }
 
+// Given the FUSE root node, it constructs the tree.
+// getDropboxTreeStructure() makes a Dropbox API call
+// to generate all the dropbox folder structure
+// modeled as an array of DrpPaths.
 func ConstructTree(ctx context.Context, r *HelloRoot) {
 	ConstructTreeFromDrpPaths(ctx, r, getDropboxTreeStructure())
 }

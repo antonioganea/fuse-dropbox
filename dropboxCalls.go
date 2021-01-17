@@ -1,3 +1,9 @@
+/*
+	This file contains functionality for dropbox API calls.
+	Mainly, it takes care of constructing the tree structure
+	as an array of DrpPaths.
+*/
+
 package main
 
 import (
@@ -6,8 +12,6 @@ import (
 
 	"github.com/dropbox/dropbox-sdk-go-unofficial/dropbox"
 	"github.com/dropbox/dropbox-sdk-go-unofficial/dropbox/files"
-	"github.com/hanwen/go-fuse/fs"
-	"golang.org/x/net/context"
 )
 
 type DrpPath struct {
@@ -83,7 +87,8 @@ func getDropboxTreeStructure() []DrpPath {
 	return structure
 }
 
-func Upload(ctx context.Context, newNode *fs.Inode, fullPath string, fileName string, content []byte) *fs.Inode {
+// Uploads a file to Dropbox.
+func Upload(fullPath string, content []byte) {
 	s := new(files.CommitInfo)
 	s.Path = "/" + fullPath
 	s.Mode = &files.WriteMode{Tagged: dropbox.Tagged{"overwrite"}}
@@ -99,8 +104,6 @@ func Upload(ctx context.Context, newNode *fs.Inode, fullPath string, fileName st
 	dbx := files.New(config)
 
 	dbx.Upload(s, t)
-
-	return newNode
 }
 
 // Sends a get_metadata request for a given path and returns the response.
@@ -126,7 +129,9 @@ func UploadFolder(fullPath string) {
 	dbx.CreateFolderV2(&createFolderArg)
 }
 
-func UploadDelete(drpn *DrpFileNode, name string) {
+// Deletes the file/folder at the given path
+// on Dropbox.
+func RemoteDelete(drpn *DrpFileNode, name string) {
 	fullPath := "/" + filepath.Join(drpn.Inode.Path(nil), name)
 	fmt.Println(fullPath)
 	deleteArg := files.DeleteArg{

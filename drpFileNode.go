@@ -1,3 +1,13 @@
+/*
+	This file contains the definition for a DrpFileNode.
+	That is, an extended fs.Indode.
+
+	Essentialy, because we're programming a custom
+	filesystem, we have to register custom functionality
+	for the common filesystem usage events such as
+	Open, Setattr, Getattr, Read, Write, Flush, etc...
+*/
+
 package main
 
 import (
@@ -25,6 +35,7 @@ type DrpFileNode struct {
 	modified bool
 }
 
+// This is called by the kernel when it needs file meta attributes.
 func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
 	//bn.mu.Lock()
 	//defer bn.mu.Unlock()
@@ -51,6 +62,7 @@ func (bn *DrpFileNode) Getattr(ctx context.Context, fh fs.FileHandle, out *fuse.
 	return fs.OK
 }
 
+// This is called when the kernel tries to read from the file.
 func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
 	// drpn.mu.Lock()
 	// defer drpn.mu.Unlock()
@@ -85,11 +97,13 @@ func (drpn *DrpFileNode) Read(ctx context.Context, fh fs.FileHandle, dest []byte
 	return fuse.ReadResultData(b1[off:readEnd]), 0
 }
 
+// This is called when the kernel tries to open the file.
 func (f *DrpFileNode) Open(ctx context.Context, openFlags uint32) (fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	fmt.Println("DrpFileNode - open")
 	return new(fs.FileHandle), fuse.FOPEN_KEEP_CACHE, fs.OK
 }
 
+// This is called when the kernel tries to write to the file.
 func (drpn *DrpFileNode) Write(ctx context.Context, fh fs.FileHandle, data []byte, off int64) (uint32, syscall.Errno) {
 	fmt.Println("DrpFileNode - writing")
 	drpn.mu.Lock()
@@ -115,7 +129,7 @@ func (drpn *DrpFileNode) Flush(ctx context.Context, f fs.FileHandle) syscall.Err
 
 		fileName := lastFolderFromPath(path)
 		fullPath := filepath.Join(parent.Path(nil), fileName)
-		Upload(ctx, &drpn.Inode, fullPath, fileName, drpn.Data)
+		Upload(fullPath, drpn.Data)
 		drpn.modified = false
 	}
 	return 0
@@ -146,6 +160,7 @@ func (drpn *DrpFileNode) Setlkw(ctx context.Context, f fs.FileHandle, owner uint
 	return 0
 }
 
+// This is called by the kernel when it sets file meta attributes.
 func (drpn *DrpFileNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.SetAttrIn, out *fuse.AttrOut) syscall.Errno {
 	fmt.Println("DrpFileNode - setattr")
 	drpn.mu.Lock()
@@ -159,6 +174,7 @@ func (drpn *DrpFileNode) Setattr(ctx context.Context, f fs.FileHandle, in *fuse.
 	return 0
 }
 
+// This is called upon creation.
 func (drpn *DrpFileNode) Create(ctx context.Context, name string, flags uint32, mode uint32, out *fuse.EntryOut) (node *fs.Inode, fh fs.FileHandle, fuseFlags uint32, errno syscall.Errno) {
 	fmt.Println("nod creat: " + name)
 	rootNode := &drpn.Inode
@@ -178,6 +194,7 @@ func (drpn *DrpFileNode) Link(ctx context.Context, target fs.InodeEmbedder, name
 	return nil, 0
 }
 
+// This is called when a directory is created.
 func (drpn *DrpFileNode) Mkdir(ctx context.Context, name string, mode uint32, out *fuse.EntryOut) (node *fs.Inode, errno syscall.Errno) {
 	fmt.Println("DrpFileNode - Mkdir")
 	rootNode := &drpn.Inode
@@ -189,18 +206,25 @@ func (drpn *DrpFileNode) Mkdir(ctx context.Context, name string, mode uint32, ou
 	return newNode, 0
 }
 
+// This is called when a file is deleted.
 func (drpn *DrpFileNode) Unlink(ctx context.Context, name string) syscall.Errno {
 	fmt.Println("DrpFileNode - Unlink")
-	UploadDelete(drpn, name)
+	RemoteDelete(drpn, name)
 	return 0
 }
 
+// This is called when a folder is deleted.
 func (drpn *DrpFileNode) Rmdir(ctx context.Context, name string) syscall.Errno {
 	fmt.Println("DrpFileNode - Rmdir")
-	UploadDelete(drpn, name)
+	RemoteDelete(drpn, name)
 	return 0
 }
 
+// These are part of the Go syntax.
+// What they do is that they make sure
+// that Go understands the fact that
+// the DrpFileNode structure implements
+// the following INTERFACES.
 var _ = (fs.NodeOpener)((*DrpFileNode)(nil))
 var _ = (fs.NodeReader)((*DrpFileNode)(nil))
 var _ = (fs.NodeWriter)((*DrpFileNode)(nil))
